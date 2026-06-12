@@ -22,7 +22,7 @@ export async function GET(
     return new NextResponse("Not Found", { status: 404 })
   }
 
-  const svg = await generateQRCodeSVG(qr.slug, qr.color)
+  const svg = await generateQRCodeSVG(qr.slug, qr.color, qr.bgColor)
   return new NextResponse(svg, {
     headers: {
       "Content-Type": "image/svg+xml",

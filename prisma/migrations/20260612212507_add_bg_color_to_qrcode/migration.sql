@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "QRCode" ADD COLUMN     "bgColor" TEXT NOT NULL DEFAULT '#FFFFFF';

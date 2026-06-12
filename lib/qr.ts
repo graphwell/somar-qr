@@ -8,7 +8,8 @@ export function buildQrUrl(slug: string): string {
 
 export async function generateQRCodeDataURL(
   slug: string,
-  color: string = "#EF3B2C"
+  color: string = "#EF3B2C",
+  bgColor: string = "#FFFFFF"
 ): Promise<string> {
   const url = buildQrUrl(slug)
   return QRCode.toDataURL(url, {
@@ -16,7 +17,7 @@ export async function generateQRCodeDataURL(
     margin: 2,
     color: {
       dark: color,
-      light: "#FFFFFF",
+      light: bgColor,
     },
     errorCorrectionLevel: "H",
   })
@@ -24,7 +25,8 @@ export async function generateQRCodeDataURL(
 
 export async function generateQRCodeSVG(
   slug: string,
-  color: string = "#EF3B2C"
+  color: string = "#EF3B2C",
+  bgColor: string = "#FFFFFF"
 ): Promise<string> {
   const url = buildQrUrl(slug)
   return QRCode.toString(url, {
@@ -33,7 +35,7 @@ export async function generateQRCodeSVG(
     margin: 2,
     color: {
       dark: color,
-      light: "#FFFFFF",
+      light: bgColor,
     },
     errorCorrectionLevel: "H",
   })

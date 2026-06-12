@@ -12,6 +12,7 @@ const createQRSchema = z.object({
   targetUrl: z.string().url(),
   description: z.string().optional(),
   color: z.string().default("#EF3B2C"),
+  bgColor: z.string().default("#FFFFFF"),
   slug: z.string().optional(),
 })
 
@@ -52,6 +53,7 @@ export async function createQRCode(data: z.infer<typeof createQRSchema>) {
       targetUrl: parsed.targetUrl,
       description: parsed.description,
       color: parsed.color,
+      bgColor: parsed.bgColor,
     },
   })
 
@@ -75,6 +77,7 @@ export async function updateQRCode(data: z.infer<typeof updateQRSchema>) {
       targetUrl: parsed.targetUrl,
       description: parsed.description,
       color: parsed.color,
+      bgColor: parsed.bgColor,
     },
   })
 

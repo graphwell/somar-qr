@@ -70,6 +70,7 @@ model QRCode {
   isActive    Boolean   @default(true)
   isPermanent Boolean   @default(true)
   color       String    @default("#EF3B2C")
+  bgColor     String    @default("#FFFFFF")
   logoUrl     String?
   totalScans  Int       @default(0)
   createdAt   DateTime  @default(now())

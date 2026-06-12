@@ -11,8 +11,11 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu"
-import { QrCode as QrCodeIcon, MoreHorizontal, BarChart2, Download, Trash2, Edit, ExternalLink, ScanLine } from "lucide-react"
+import { QrCode as QrCodeIcon, MoreHorizontal, BarChart2, Download, Trash2, Edit, ExternalLink, ScanLine, FileImage, FileType2, FileCode2 } from "lucide-react"
 import { toast } from "sonner"
 import { deleteQRCode, toggleQRCode } from "@/actions/qr"
 import { formatRelative, formatNumber } from "@/lib/utils"
@@ -20,16 +23,44 @@ import { EditQRDialog } from "@/components/qr/edit-qr-dialog"
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://qr.somar.ia.br"
 
+/** Renders an SVG string onto a <canvas> and resolves with the canvas element. */
+function svgToCanvas(svgText: string, size: number, bgColor?: string): Promise<HTMLCanvasElement> {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement("canvas")
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext("2d")!
+
+    const img = new Image()
+    const blob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+
+    img.onload = () => {
+      if (bgColor) {
+        ctx.fillStyle = bgColor
+        ctx.fillRect(0, 0, size, size)
+      }
+      ctx.drawImage(img, 0, 0, size, size)
+      URL.revokeObjectURL(url)
+      resolve(canvas)
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
+
 export function QRCodeCard({ qr }: { qr: QRCode }) {
   const [active, setActive] = useState(qr.isActive)
   const [deleting, setDeleting] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [svgText, setSvgText] = useState<string>("")
   const [svgDataUrl, setSvgDataUrl] = useState<string>("")
 
   useEffect(() => {
     fetch(`/api/qr/${qr.id}/image`)
       .then((r) => r.text())
       .then((svg) => {
+        setSvgText(svg)
         const encoded = encodeURIComponent(svg)
         setSvgDataUrl(`data:image/svg+xml,${encoded}`)
       })
@@ -57,11 +88,54 @@ export function QRCodeCard({ qr }: { qr: QRCode }) {
     }
   }
 
-  function handleDownload() {
+  // SVG download
+  function handleDownloadSVG() {
     const a = document.createElement("a")
     a.href = `/api/qr/${qr.id}/image`
     a.download = `${qr.slug}.svg`
     a.click()
+  }
+
+  // PNG — transparent background
+  async function handleDownloadPNG() {
+    if (!svgText) return toast.error("SVG ainda não carregado.")
+    try {
+      const canvas = await svgToCanvas(svgText, 1024) // no bgColor → transparent
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `${qr.slug}.png`
+        a.click()
+        URL.revokeObjectURL(url)
+      }, "image/png")
+    } catch {
+      toast.error("Erro ao gerar PNG.")
+    }
+  }
+
+  // JPG — white background
+  async function handleDownloadJPG() {
+    if (!svgText) return toast.error("SVG ainda não carregado.")
+    try {
+      const canvas = await svgToCanvas(svgText, 1024, "#ffffff")
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement("a")
+          a.href = url
+          a.download = `${qr.slug}.jpg`
+          a.click()
+          URL.revokeObjectURL(url)
+        },
+        "image/jpeg",
+        0.95
+      )
+    } catch {
+      toast.error("Erro ao gerar JPG.")
+    }
   }
 
   return (
@@ -89,9 +163,37 @@ export function QRCodeCard({ qr }: { qr: QRCode }) {
                 <DropdownMenuItem onClick={() => setEditOpen(true)} className="gap-2">
                   <Edit className="h-4 w-4" /> Editar
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleDownload} className="gap-2">
-                  <Download className="h-4 w-4" /> Download SVG
-                </DropdownMenuItem>
+
+                {/* Download submenu */}
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger className="gap-2">
+                    <Download className="h-4 w-4" /> Download
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={handleDownloadSVG} className="gap-2">
+                      <FileCode2 className="h-4 w-4 text-blue-500" />
+                      <div className="flex flex-col">
+                        <span className="font-medium">SVG</span>
+                        <span className="text-xs text-muted-foreground">Vetorial escalável</span>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDownloadPNG} className="gap-2">
+                      <FileImage className="h-4 w-4 text-purple-500" />
+                      <div className="flex flex-col">
+                        <span className="font-medium">PNG</span>
+                        <span className="text-xs text-muted-foreground">Fundo transparente · 1024px</span>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDownloadJPG} className="gap-2">
+                      <FileType2 className="h-4 w-4 text-orange-500" />
+                      <div className="flex flex-col">
+                        <span className="font-medium">JPG</span>
+                        <span className="text-xs text-muted-foreground">Fundo branco · 1024px</span>
+                      </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+
                 <DropdownMenuItem className="gap-2" onClick={() => window.location.href = `/qr/${qr.id}`}>
                   <BarChart2 className="h-4 w-4" /> Ver analytics
                 </DropdownMenuItem>
