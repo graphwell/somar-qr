@@ -1,7 +1,14 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  output: "standalone",
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "**" },
+      { protocol: "http", hostname: "localhost" },
+    ],
+  },
+  serverExternalPackages: ["@prisma/client", "prisma"],
+}
 
-export default nextConfig;
+export default nextConfig
