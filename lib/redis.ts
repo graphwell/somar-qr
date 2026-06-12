@@ -1,29 +1,34 @@
-import IORedis from "ioredis"
+import { Redis } from "@upstash/redis"
 
-const globalForRedis = globalThis as unknown as {
-  redis: IORedis | undefined
+export const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+})
+
+export async function checkRateLimit(key: string, max: number, windowSeconds: number) {
+  const now = Math.floor(Date.now() / 1000)
+  const windowKey = `rl:${key}:${Math.floor(now / windowSeconds)}`
+  const count = await redis.incr(windowKey)
+  if (count === 1) await redis.expire(windowKey, windowSeconds)
+  return {
+    allowed: count <= max,
+    remaining: Math.max(0, max - count),
+    resetAt: (Math.floor(now / windowSeconds) + 1) * windowSeconds,
+  }
 }
 
-export const redis =
-  globalForRedis.redis ??
-  new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
-    maxRetriesPerRequest: 3,
-    lazyConnect: true,
-  })
+export async function cacheGet<T>(key: string): Promise<T | null> {
+  return redis.get<T>(key)
+}
 
-if (process.env.NODE_ENV !== "production") globalForRedis.redis = redis
+export async function cacheSet(key: string, value: unknown, ttlSeconds: number) {
+  await redis.setex(key, ttlSeconds, value as string)
+}
 
-export async function rateLimit(
-  key: string,
-  limit: number,
-  windowSeconds: number
-): Promise<{ success: boolean; remaining: number }> {
-  const current = await redis.incr(key)
-  if (current === 1) {
-    await redis.expire(key, windowSeconds)
-  }
-  return {
-    success: current <= limit,
-    remaining: Math.max(0, limit - current),
-  }
+export async function cacheDel(key: string) {
+  await redis.del(key)
+}
+
+export async function cacheDelPattern(_pattern: string) {
+  // Upstash não suporta KEYS — no-op
 }

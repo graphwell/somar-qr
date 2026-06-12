@@ -1,11 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
+import { useState, useEffect } from "react"
 import { QRCode } from "@prisma/client"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import {
   DropdownMenu,
@@ -19,7 +17,6 @@ import { toast } from "sonner"
 import { deleteQRCode, toggleQRCode } from "@/actions/qr"
 import { formatRelative, formatNumber } from "@/lib/utils"
 import { EditQRDialog } from "@/components/qr/edit-qr-dialog"
-import Image from "next/image"
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://qr.somar.ia.br"
 
@@ -27,6 +24,17 @@ export function QRCodeCard({ qr }: { qr: QRCode }) {
   const [active, setActive] = useState(qr.isActive)
   const [deleting, setDeleting] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [svgDataUrl, setSvgDataUrl] = useState<string>("")
+
+  useEffect(() => {
+    fetch(`/api/qr/${qr.id}/image`)
+      .then((r) => r.text())
+      .then((svg) => {
+        const encoded = encodeURIComponent(svg)
+        setSvgDataUrl(`data:image/svg+xml,${encoded}`)
+      })
+      .catch(() => {})
+  }, [qr.id])
 
   async function handleToggle() {
     const res = await toggleQRCode(qr.id)
@@ -52,7 +60,7 @@ export function QRCodeCard({ qr }: { qr: QRCode }) {
   function handleDownload() {
     const a = document.createElement("a")
     a.href = `/api/qr/${qr.id}/image`
-    a.download = `${qr.slug}.png`
+    a.download = `${qr.slug}.svg`
     a.click()
   }
 
@@ -82,7 +90,7 @@ export function QRCodeCard({ qr }: { qr: QRCode }) {
                   <Edit className="h-4 w-4" /> Editar
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleDownload} className="gap-2">
-                  <Download className="h-4 w-4" /> Download PNG
+                  <Download className="h-4 w-4" /> Download SVG
                 </DropdownMenuItem>
                 <DropdownMenuItem className="gap-2" onClick={() => window.location.href = `/qr/${qr.id}`}>
                   <BarChart2 className="h-4 w-4" /> Ver analytics
@@ -101,14 +109,20 @@ export function QRCodeCard({ qr }: { qr: QRCode }) {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex justify-center py-2">
-            <Image
-              src={`/api/qr/${qr.id}/image`}
-              alt={`QR ${qr.name}`}
-              width={120}
-              height={120}
-              className="rounded"
-              unoptimized
-            />
+            {svgDataUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={svgDataUrl}
+                alt={`QR ${qr.name}`}
+                width={120}
+                height={120}
+                className="rounded"
+              />
+            ) : (
+              <div className="h-[120px] w-[120px] rounded bg-gray-100 flex items-center justify-center">
+                <QrCodeIcon className="h-8 w-8 text-gray-300" />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 text-xs text-muted-foreground bg-gray-50 rounded px-2 py-1.5">

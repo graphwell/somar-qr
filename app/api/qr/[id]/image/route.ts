@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { generateQRCodeBuffer } from "@/lib/qr"
+import { generateQRCodeSVG } from "@/lib/qr"
 
 export async function GET(
   request: NextRequest,
@@ -22,11 +22,11 @@ export async function GET(
     return new NextResponse("Not Found", { status: 404 })
   }
 
-  const buffer = await generateQRCodeBuffer(qr.slug, qr.color)
-  return new NextResponse(buffer as unknown as BodyInit, {
+  const svg = await generateQRCodeSVG(qr.slug, qr.color)
+  return new NextResponse(svg, {
     headers: {
-      "Content-Type": "image/png",
-      "Content-Disposition": `attachment; filename="${qr.slug}.png"`,
+      "Content-Type": "image/svg+xml",
+      "Content-Disposition": `attachment; filename="${qr.slug}.svg"`,
       "Cache-Control": "public, max-age=3600",
     },
   })

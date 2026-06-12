@@ -22,12 +22,13 @@ export async function generateQRCodeDataURL(
   })
 }
 
-export async function generateQRCodeBuffer(
+export async function generateQRCodeSVG(
   slug: string,
   color: string = "#EF3B2C"
-): Promise<Buffer> {
+): Promise<string> {
   const url = buildQrUrl(slug)
-  return QRCode.toBuffer(url, {
+  return QRCode.toString(url, {
+    type: "svg",
     width: 400,
     margin: 2,
     color: {

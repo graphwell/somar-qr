@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { trackScan } from "@/lib/analytics"
-import { redis, rateLimit } from "@/lib/redis"
+import { checkRateLimit, cacheGet, cacheSet } from "@/lib/redis"
 
 export async function GET(
   request: NextRequest,
@@ -11,25 +11,25 @@ export async function GET(
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
 
-  const { success } = await rateLimit(`scan:${ip}`, 30, 60).catch(() => ({
-    success: true,
+  const rl = await checkRateLimit(`scan:${ip}`, 30, 60).catch(() => ({
+    allowed: true,
     remaining: 30,
+    resetAt: 0,
   }))
 
-  if (!success) {
+  if (!rl.allowed) {
     return new NextResponse("Too Many Requests", { status: 429 })
   }
 
   const cacheKey = `qr:${slug}`
-  const cached = await redis.get(cacheKey).catch(() => null)
+  const cached = await cacheGet<{ id: string; targetUrl: string }>(cacheKey).catch(() => null)
 
   let targetUrl: string
   let qrCodeId: string
 
   if (cached) {
-    const data = JSON.parse(cached)
-    targetUrl = data.targetUrl
-    qrCodeId = data.id
+    targetUrl = cached.targetUrl
+    qrCodeId = cached.id
   } else {
     const qr = await prisma.qRCode.findUnique({
       where: { slug },
@@ -42,9 +42,7 @@ export async function GET(
 
     targetUrl = qr.targetUrl
     qrCodeId = qr.id
-    await redis
-      .setex(cacheKey, 300, JSON.stringify({ id: qr.id, targetUrl: qr.targetUrl }))
-      .catch(() => {})
+    await cacheSet(cacheKey, { id: qr.id, targetUrl: qr.targetUrl }, 300).catch(() => {})
   }
 
   trackScan(qrCodeId, request).catch(() => {})
