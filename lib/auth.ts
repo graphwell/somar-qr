@@ -1,6 +1,5 @@
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { PrismaAdapter } from "@auth/prisma-adapter"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
@@ -11,11 +10,13 @@ const loginSchema = z.object({
 })
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as NextAuthOptions["adapter"],
+  // Sem adapter — usamos JWT puro com Credentials.
+  // O adapter (PrismaAdapter) causa erros com Prisma 7 + pgbouncer no Vercel.
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
   },
+  secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/login",
     error: "/login",
@@ -31,21 +32,27 @@ export const authOptions: NextAuthOptions = {
         const parsed = loginSchema.safeParse(credentials)
         if (!parsed.success) return null
 
-        const user = await prisma.user.findUnique({
-          where: { email: parsed.data.email },
-        })
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: parsed.data.email },
+            select: { id: true, email: true, name: true, image: true, password: true, role: true },
+          })
 
-        if (!user || !user.password) return null
+          if (!user || !user.password) return null
 
-        const valid = await bcrypt.compare(parsed.data.password, user.password)
-        if (!valid) return null
+          const valid = await bcrypt.compare(parsed.data.password, user.password)
+          if (!valid) return null
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          role: user.role,
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+            role: user.role,
+          }
+        } catch (err) {
+          console.error("[auth] authorize error:", err)
+          return null
         }
       },
     }),
